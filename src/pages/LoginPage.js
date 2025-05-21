@@ -1,22 +1,33 @@
-import { By } from 'selenium-webdriver';
-import { BasePage } from '../core/BasePage.js';
+import { By, until } from 'selenium-webdriver';
 
-export class LoginPage extends BasePage {
+export class LoginPage {
     constructor(driver) {
-        super(driver);
-        this.usernameField = By.css('[data-testid="email-input"]');
-        this.passwordField = By.css('[data-testid="password-input"]');
-        this.loginButton = By.css('span.m_811560b9.mantine-Button-label');
-        this.errorMessage = By.className('error-message');
+        this.driver = driver;
+        this.selectors = {
+            emailInput: '[data-testid="email-input"]',
+            passwordInput: '[data-testid="password-input"]',
+            loginButton: "//span[text()='Login']",
+            errorMessage: '.Toastify__toast--error'
+        };
     }
 
-    async login(username, password) {
-        await this.type(this.usernameField, username);
-        await this.type(this.passwordField, password);
-        await this.click(this.loginButton);
+    async login(email, password) {
+        await this.driver.findElement(By.css(this.selectors.emailInput)).sendKeys(email);
+        await this.driver.findElement(By.css(this.selectors.passwordInput)).sendKeys(password);
+        await this.driver.findElement(By.xpath(this.selectors.loginButton)).click();
+        
+        await this.driver.wait(
+            until.urlContains('/dashboard'),
+            10000,
+            'Login failed - not redirected to dashboard'
+        );
     }
 
     async getErrorMessage() {
-        return await this.getText(this.errorMessage);
+        const toast = await this.driver.wait(
+            until.elementLocated(By.css(this.selectors.errorMessage)),
+            5000
+        );
+        return await toast.getText();
     }
 }
