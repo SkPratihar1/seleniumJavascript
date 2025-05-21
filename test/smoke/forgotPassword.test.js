@@ -1,19 +1,25 @@
 import { Builder, By, until } from 'selenium-webdriver';
 import assert from 'node:assert';
 import { ForgotPasswordPage } from '../../src/pages/ForgotPasswordPage.js';
+import { LoginPage } from '../../src/pages/LoginPage.js';
 
 describe('Forgot Password Flow', function() {
     this.timeout(60000); // Increase timeout for async email handling
     let driver;
     let forgotPasswordPage;
+    let loginPage;
 
     const testEmail = 'pratihar+sas@itobuz.com';
-    const newPassword = 'NewPassword123!';
+    const specialChars = ['@', '#', '$', '%', '&'];
+    const randomSpecial = specialChars[Math.floor(Math.random() * specialChars.length)];
+    const randomNum = Math.floor(Math.random() * 9000) + 1000;
+    const newPassword = `Itobuz${randomSpecial}${randomNum}`;
 
     beforeEach(async function() {
         driver = await new Builder().forBrowser('chrome').build();
         await driver.manage().window().maximize();
         forgotPasswordPage = new ForgotPasswordPage(driver);
+        loginPage = new LoginPage(driver);
     });
 
     afterEach(async function() {
@@ -52,6 +58,37 @@ describe('Forgot Password Flow', function() {
             until.urlContains('/login'),
             10000,
             'Should redirect to login after password reset'
+        );
+
+        // Step 7: Verify login with new password
+        await loginPage.login(testEmail, newPassword);
+        await driver.sleep(2000); // Wait for page load
+
+        // Wait for either dashboard or root URL
+        // await driver.wait(
+        //     until.or(
+        //         until.urlIs('https://sass-starter-kit.wordpress-studio.io'),
+        //         until.urlIs('https://sass-starter-kit.wordpress-studio.io/dashboard')
+        //     ),
+        //     10000,
+        //     'Not redirected to homepage or dashboard'
+        // );
+
+        // Wait for any welcome content
+        const welcomeElement = await driver.wait(
+            until.elementLocated(By.css('h2.text-4xl.font-bold.text-blue-700')),
+            10000,
+            'Welcome heading not found'
+        );
+
+        const welcomeText = await welcomeElement.getText();
+        console.log('Found welcome text:', welcomeText);
+        
+        // Compare with the actual text that includes the HTML entity
+        assert.strictEqual(
+            welcomeText,
+            'Discover Simplicity & Elegance',
+            'Welcome heading should match exactly'
         );
     });
 });

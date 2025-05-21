@@ -1,5 +1,6 @@
-import { Builder } from 'selenium-webdriver';
+import { Builder, until } from 'selenium-webdriver';
 import { faker } from '@faker-js/faker';
+import { expect } from 'chai';
 import { SignupPage } from '../../src/pages/SignupPage.js';
 import { LoginPage } from '../../src/pages/LoginPage.js';
 
@@ -44,6 +45,15 @@ describe('Signup Flow', function() {
         // Step 5: Login with new account
         await driver.sleep(3000);
         await loginPage.login(testEmail, password);
+        
+        // Wait for URL to change and verify
+        await driver.wait(async function() {
+            const currentUrl = await driver.getCurrentUrl();
+            return currentUrl.includes('sass-starter-kit.wordpress-studio.io');
+        }, 10000, 'URL did not change to expected value');
+        
+        const currentUrl = await driver.getCurrentUrl();
+        expect(currentUrl).to.include('sass-starter-kit.wordpress-studio.io');
     });
 
     after(async function() {

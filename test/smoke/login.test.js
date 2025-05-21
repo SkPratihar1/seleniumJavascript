@@ -1,5 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'mocha';
 import { expect } from 'chai';
+import { until, By } from 'selenium-webdriver';
 import { BaseTest } from '../base/BaseTest.js';
 import { LoginPage } from '../../src/pages/LoginPage.js';
 import { config } from '../../src/config/config.js';
@@ -18,15 +19,19 @@ describe('Login Tests', function() {
 
     it('should login successfully with valid credentials', async function() {
         await loginPage.login(testData.validUser.username, testData.validUser.password);
+
+        // Wait for any welcome content
+        await test.driver.sleep(2000); // Adjust sleep time as needed
+        const welcomeElement = await test.driver.wait(
+            until.elementLocated(By.css('h2.text-4xl.font-bold.text-blue-700')),
+            10000,
+            'Welcome heading not found'
+        );
+
+        const welcomeText = await welcomeElement.getText();
+        console.log('Found welcome text:', welcomeText);
         
-        // Wait for URL to change and verify
-        await test.driver.wait(async function() {
-            const currentUrl = await test.driver.getCurrentUrl();
-            return currentUrl.includes('sass-starter-kit.wordpress-studio.io/onboarding/create-workspace');
-        }, 10000, 'URL did not change to expected value');
-        
-        const currentUrl = await test.driver.getCurrentUrl();
-        expect(currentUrl).to.include('sass-starter-kit.wordpress-studio.io/onboarding/create-workspace');
+        expect(welcomeText).to.equal('Discover Simplicity & Elegance');
     });
 
     // it('should show error message with invalid credentials', async function() {

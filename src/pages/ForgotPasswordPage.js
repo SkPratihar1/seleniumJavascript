@@ -1,5 +1,6 @@
 import { By, until } from 'selenium-webdriver';
 import axios from 'axios';
+import { updatePassword } from '../utils/updateEnv.js';
 
 export class ForgotPasswordPage {
     constructor(driver) {
@@ -166,6 +167,9 @@ export class ForgotPasswordPage {
 
         const changeBtn = await this.driver.findElement(By.xpath(this.selectors.changePasswordButton));
         await changeBtn.click();
+
+        // Update password in .env file
+        await updatePassword(newPassword);
     }
 
     async enterEmailOnLoginPage(email) {
