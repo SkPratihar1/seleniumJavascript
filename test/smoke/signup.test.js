@@ -3,6 +3,7 @@ import { faker } from '@faker-js/faker';
 import { expect } from 'chai';
 import { SignupPage } from '../../src/pages/SignupPage.js';
 import { LoginPage } from '../../src/pages/LoginPage.js';
+import { EnvManager } from '../../src/utils/envManager.js';
 
 describe('Signup Flow', function() {
     this.timeout(60000);
@@ -26,6 +27,7 @@ describe('Signup Flow', function() {
 
         // Step 2: Register new user
         await signupPage.registerNewUser(testEmail, password);
+        await EnvManager.updateCredentials('signup', testEmail, password);
 
         // Step 3: Get verification link from email and clean it
         await driver.sleep(5000);

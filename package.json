@@ -4,10 +4,11 @@
   "type": "module",
   "scripts": {
     "test": "mocha --timeout 60000 'test/**/*.test.js'",
-    "test:smoke": "mocha --timeout 60000 \"test/smoke/*.test.js\"",
+    "test:smoke": "mocha --require dotenv/config test/smoke/suite.js --timeout 300000 --exit",
+    "test:smoke:single": "mocha",
     "test:regression": "mocha --timeout 60000 'test/regression/**/*.test.js'",
     "report": "mochawesome-merge ./reports/*.json -o ./reports/report.json",
-    "test:single": "mocha --timeout 60000"
+    "test:single": "mocha --require dotenv/config --timeout 60000"
   },
   "dependencies": {
     "axios": "^1.9.0",

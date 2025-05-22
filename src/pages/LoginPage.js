@@ -15,6 +15,7 @@ export class LoginPage {
     }
 
     async login(email, password) {
+        await this.driver.sleep(2000); // Wait for page load
         await this.driver.findElement(By.css(this.selectors.emailInput)).sendKeys(email);
         await this.driver.findElement(By.css(this.selectors.passwordInput)).sendKeys(password);
         await this.driver.findElement(By.xpath(this.selectors.loginButton)).click();

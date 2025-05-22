@@ -1,6 +1,6 @@
 import { By, until } from 'selenium-webdriver';
 import axios from 'axios';
-import { updatePassword } from '../utils/updateEnv.js';
+import { EnvManager } from '../utils/envManager.js';
 
 export class ForgotPasswordPage {
     constructor(driver) {
@@ -168,8 +168,8 @@ export class ForgotPasswordPage {
         const changeBtn = await this.driver.findElement(By.xpath(this.selectors.changePasswordButton));
         await changeBtn.click();
 
-        // Update password in .env file
-        await updatePassword(newPassword);
+        // Only use EnvManager
+        await EnvManager.updateCredentials('forgot', null, newPassword);
     }
 
     async enterEmailOnLoginPage(email) {

@@ -32,8 +32,8 @@ describe('Post Management Tests', function() {
     });
 
     it('should create post successfully', async function() {
-        const title = faker.lorem.sentence();
-        const content = faker.lorem.paragraphs(2);
+        const title = `Test Post ${faker.string.alphanumeric(8)}`; // Shorter, unique title
+        const content = faker.lorem.paragraph();
         await postManagement.createPost(title, content);
         global.createdPostTitle = title;
         
@@ -47,6 +47,7 @@ describe('Post Management Tests', function() {
 
     it('should post list displayed successfully', async function() {
         // Remove refresh since we're already on the list page
+        await test.driver.sleep(2000);
         await test.driver.wait(
             until.elementsLocated(By.css('.MuiDataGrid-root')),
             15000,
@@ -65,22 +66,36 @@ describe('Post Management Tests', function() {
     });
 
     it('should edit post successfully', async function() {
-        // await test.driver.navigate().refresh();
         await test.driver.sleep(2000);
         
-        const newTitle = faker.lorem.sentence();
+        const newTitle = `Updated Post ${faker.string.alphanumeric(8)}`; // Shorter title for edit
         await postManagement.editPost(global.createdPostTitle, newTitle);
-        global.createdPostTitle = newTitle;
         
-        await test.driver.sleep(3000); // Extended wait for list refresh
+        // Wait for edit to complete and verify
+        await test.driver.sleep(3000);
+        const isEdited = await postManagement.verifyPostInList(newTitle);
+        expect(isEdited).to.be.true;
+        
+        global.createdPostTitle = newTitle;
+        await test.driver.sleep(2000); // Additional wait before next operation
     });
 
     it('should delete post successfully', async function() {
-        // await test.driver.navigate().refresh();
+        // Ensure we're on the post list page
         await test.driver.sleep(2000);
+        await postManagement.navigateToPostList();
+        await test.driver.sleep(2000);
+        
+        // Verify post exists before deletion
+        const existsBeforeDelete = await postManagement.verifyPostInList(global.createdPostTitle);
+        expect(existsBeforeDelete).to.be.true;
         
         await postManagement.deletePost(global.createdPostTitle);
         await test.driver.sleep(3000);
+        
+        // Refresh page to ensure list is updated
+        await test.driver.navigate().refresh();
+        await test.driver.sleep(2000);
         
         const isFound = await postManagement.verifyPostInList(global.createdPostTitle);
         expect(isFound).to.be.false;

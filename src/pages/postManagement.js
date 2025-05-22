@@ -24,6 +24,7 @@ export class PostManagement extends BasePage {
         this.gridRow = By.css('.MuiDataGrid-row');
         this.gridLoaded = By.css('.MuiDataGrid-root');
         this.postManagementUrl = 'https://sass-starter-kit.wordpress-studio.io/dashboard/post-management/list';
+        this.noRowsMessage = By.css('.MuiDataGrid-overlay');
     }
 
     async navigateToPostList() {
@@ -145,15 +146,58 @@ export class PostManagement extends BasePage {
         await titleInput.sendKeys(newTitle);
         
         await this.driver.findElement(this.publishButton).click();
+        await this.driver.sleep(3000);
+        // Verify old title is gone
+        const oldTitleGone = await this.searchAndVerifyPost(title, false);
+        console.log(`Old title "${title}" removed:`, oldTitleGone);
+        // Verify new title exists
+        const newTitleExists = await this.searchAndVerifyPost(newTitle, true);
+        console.log(`New title "${newTitle}" found:`, newTitleExists);
+        if (!oldTitleGone || !newTitleExists) {
+            throw new Error('Edit verification failed');
+        }
     }
 
     async deletePost(title) {
         await this.waitForGridAndSearch(title);
-        await this.driver.sleep(2000); // Wait for search results
+        await this.driver.sleep(3000);
+
         await this.clickActionMenu();
-        await this.driver.sleep(200);
-        await this.driver.wait(until.elementLocated(this.confirmDeleteButton), 5000);
-        await this.driver.findElement(this.confirmDeleteButton).click();
+        await this.driver.sleep(2000);
+
+        // Click delete with explicit wait and scroll
+        const deleteBtn = await this.driver.wait(
+            until.elementLocated(this.deleteMenuItem),
+            10000,
+            'Delete menu item not found'
+        );
+        await this.driver.executeScript("arguments[0].scrollIntoView(true);", deleteBtn);
+        await this.driver.sleep(1000);
+        await deleteBtn.click();
+        await this.driver.sleep(2000);
+
+        // Handle confirmation dialog with explicit wait
+        // const confirmBtn = await this.driver.wait(
+        //     until.elementLocated(By.xpath("//span[text()='Delete']/ancestor::button")),
+        //     10000,
+        //     'Confirm delete button not found'
+        // );
+        // await this.driver.executeScript("arguments[0].scrollIntoView(true);", confirmBtn);
+        // await this.driver.sleep(1000);
+        // await this.driver.executeScript("arguments[0].click();", confirmBtn);
+        
+        // Wait for delete completion
+        await this.driver.sleep(3000);
+        // await this.driver.wait(
+        //     until.stalenessOf(await this.driver.findElement(this.gridLoaded)),
+        //     10000,
+        //     'Grid not refreshed after delete'
+        // );
+        // Verify deletion by searching
+        const isDeleted = await this.searchAndVerifyPost(title, false);
+        if (!isDeleted) {
+            throw new Error('Post still exists after deletion');
+        }
     }
 
     async verifyPostInList(title) {
@@ -164,5 +208,32 @@ export class PostManagement extends BasePage {
             if (text === title) return true;
         }
         return false;
+    }
+
+    async verifyNoRows() {
+        await this.driver.sleep(2000);
+        const noRowsElement = await this.driver.wait(
+            until.elementLocated(this.noRowsMessage),
+            10000,
+            'No rows message not found'
+        );
+        const text = await noRowsElement.getText();
+        console.log('Grid message:', text);
+        return text.includes('No rows');
+    }
+
+    async searchAndVerifyPost(title, shouldExist = true) {
+        await this.searchPost(title);
+        await this.driver.sleep(2000);
+        
+        if (shouldExist) {
+            const exists = await this.verifyPostInList(title);
+            console.log(`Post "${title}" found: ${exists}`);
+            return exists;
+        } else {
+            const noRows = await this.verifyNoRows();
+            console.log(`No rows found for "${title}": ${noRows}`);
+            return noRows;
+        }
     }
 }

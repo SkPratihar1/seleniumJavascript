@@ -31,60 +31,34 @@ describe('Workspace Management Tests', function() {
     });
 
     it('1. should create workspace successfully', async function() {
-        createdWorkspaceName = faker.company.name();
+        createdWorkspaceName = `Test Workspace ${faker.string.alphanumeric(6)}`;
         await workspacePage.createWorkspace(createdWorkspaceName);
-        const message = await workspacePage.getSuccessMessage();
-        expect(message).to.include('Workspace created successfully');
+        await workspacePage.searchAndVerifyWorkspace(createdWorkspaceName, true);
     });
 
     it('2. should edit workspace successfully', async function() {
-        await test.driver.sleep(2000);
-        await workspacePage.clickWorkspaceMenu();
-        
-        // Search for created workspace
         await workspacePage.searchWorkspace(createdWorkspaceName);
+        await test.driver.sleep(2000);
         
-        const newWorkspaceName = faker.company.name();
+        const newWorkspaceName = `Updated Workspace ${faker.string.alphanumeric(6)}`;
         await workspacePage.editWorkspace(0, newWorkspaceName);
-        createdWorkspaceName = newWorkspaceName; // Update name for delete test
         
-        // Wait and retry for success message
-        await test.driver.wait(
-            async () => {
-                try {
-                    const message = await workspacePage.getSuccessMessage();
-                    return message.includes('Workspace updated successfully');
-                } catch (error) {
-                    return false;
-                }
-            },
-            15000,
-            'Workspace update success message not found'
-        );
+        // Verify update
+        const isUpdated = await workspacePage.searchAndVerifyWorkspace(newWorkspaceName, true);
+        expect(isUpdated).to.be.true;
+        createdWorkspaceName = newWorkspaceName;
     });
 
     it('3. should delete workspace successfully', async function() {
-        await test.driver.sleep(2000);
-        await workspacePage.clickWorkspaceMenu();
-        
-        // Search for edited workspace
         await workspacePage.searchWorkspace(createdWorkspaceName);
+        await test.driver.sleep(2000);
         
+        console.log(`Attempting to delete workspace: "${createdWorkspaceName}"`);
         await workspacePage.deleteWorkspace(0);
         
-        // Wait and retry for success message
-        await test.driver.wait(
-            async () => {
-                try {
-                    const message = await workspacePage.getSuccessMessage();
-                    return message.includes('Workspace deleted successfully');
-                } catch (error) {
-                    return false;
-                }
-            },
-            15000,
-            'Workspace delete success message not found'
-        );
+        // Final verification
+        const isDeleted = await workspacePage.searchAndVerifyWorkspace(createdWorkspaceName, false);
+        expect(isDeleted).to.be.true;
     });
 
     after(async function() {

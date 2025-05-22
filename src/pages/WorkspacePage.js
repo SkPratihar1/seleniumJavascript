@@ -16,20 +16,45 @@ export class WorkspacePage extends BasePage {
         this.confirmDeleteButton = By.xpath("//button//span[contains(@class, 'mantine-Button-label') and text()='Delete']");
         this.editButton = By.xpath("//button//span[contains(@class, 'mantine-Button-label') and text()='Update']");
         this.searchInput = By.css('[data-testid="search-role"]');
+        this.noRowsMessage = By.css('.MuiDataGrid-overlay');
+        this.workspaceNameInList = By.css('.MuiDataGrid-row .MuiDataGrid-cell[data-field="name"]');
     }
 
     async createWorkspace(name) {
-        await this.click(this.addWorkspaceButton);
-        await this.driver.findElement(this.workspaceNameInput).sendKeys(name);
-        await this.driver.sleep(2000); // Wait for the input to be filled
-        
-        const createButton = await this.driver.wait(
-            until.elementLocated(this.createButton),
+        await this.driver.wait(
+            until.elementLocated(this.addWorkspaceButton),
             10000,
-            'Create button not found'
+            'Add Workspace button not found'
         );
-        await createButton.click();
-        await this.driver.wait(until.elementLocated(this.successMessage), 5000);
+        await this.click(this.addWorkspaceButton);
+        await this.driver.sleep(2000);
+
+        const nameInput = await this.driver.wait(
+            until.elementLocated(this.workspaceNameInput),
+            10000,
+            'Workspace name input not found'
+        );
+        await nameInput.clear();
+        await nameInput.sendKeys(name);
+        await this.driver.sleep(1000);
+        
+        await this.driver.findElement(this.createButton).click();
+        await this.waitForSuccessMessage('Workspace created successfully');
+    }
+
+    async waitForSuccessMessage(expectedText, timeout = 15000) {
+        return await this.driver.wait(
+            async () => {
+                try {
+                    const message = await this.getSuccessMessage();
+                    return message.includes(expectedText);
+                } catch (error) {
+                    return false;
+                }
+            },
+            timeout,
+            `Success message "${expectedText}" not found`
+        );
     }
 
     async getSuccessMessage() {
@@ -47,51 +72,94 @@ export class WorkspacePage extends BasePage {
         return (await toast.getText()).trim();
     }
 
-    async editWorkspace(index, newName) {
-        await this.driver.sleep(2000); // Wait for page to stabilize
+    async verifyNoRows(maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                await this.driver.sleep(2000);
+                const noRowsElement = await this.driver.wait(
+                    until.elementLocated(this.noRowsMessage),
+                    5000
+                );
+                const text = await noRowsElement.getText();
+                console.log(`Attempt ${i + 1} - Grid message:`, text);
+                if (text.includes('No rows')) {
+                    return true;
+                }
+            } catch (error) {
+                console.log(`Attempt ${i + 1} failed:`, error.message);
+                if (i === maxRetries - 1) throw error;
+                await this.driver.navigate().refresh();
+                await this.driver.sleep(2000);
+            }
+        }
+        return false;
+    }
+
+    async searchAndVerifyWorkspace(name, shouldExist = true) {
+        await this.searchWorkspace(name);
+        await this.driver.sleep(2000);
         
-        // Get fresh list of action buttons
-        await this.driver.wait(
-            async () => {
-                const buttons = await this.driver.findElements(this.actionMenuButton);
-                return buttons.length > index;
-            },
-            10000,
-            'Action buttons not found or index out of range'
+        if (shouldExist) {
+            const workspaces = await this.driver.findElements(this.workspaceNameInList);
+            for (const workspace of workspaces) {
+                const text = await workspace.getText();
+                if (text === name) {
+                    console.log(`Workspace "${name}" found`);
+                    return true;
+                }
+            }
+            return false;
+        } else {
+            const noRows = await this.verifyNoRows();
+            console.log(`No rows found for "${name}": ${noRows}`);
+            return noRows;
+        }
+    }
+
+    async editWorkspace(index, newName) {
+        await this.driver.sleep(2000);
+        
+        // Get fresh list of action buttons with retry
+        const actionButtons = await this.driver.wait(
+            until.elementsLocated(this.actionMenuButton),
+            15000,
+            'Action buttons not found'
         );
         
-        const actionButtons = await this.driver.findElements(this.actionMenuButton);
-        await this.driver.executeScript("arguments[0].scrollIntoView(true);", actionButtons[index]);
-        await actionButtons[index].click();
-        
-        // Wait for menu items and click edit
-        await this.driver.wait(until.elementLocated(this.editMenuItem), 10000);
-        await this.driver.findElement(this.editMenuItem).click();
-        
-        // Update name with retries
-        await this.driver.wait(async () => {
-            try {
-                const nameInput = await this.driver.findElement(this.workspaceNameInput);
-                await nameInput.clear();
-                await nameInput.sendKeys(newName);
-                return true;
-            } catch (e) {
-                if (e.name === 'StaleElementReferenceError') return false;
-                throw e;
-            }
-        }, 10000, 'Failed to update workspace name');
+        if (!actionButtons[index]) {
+            throw new Error(`No action button found at index ${index}`);
+        }
 
-        // Click update with retry
+        // Click action menu with retry
         await this.driver.wait(async () => {
             try {
-                const updateButton = await this.driver.findElement(this.editButton);
-                await updateButton.click();
+                await this.driver.executeScript("arguments[0].scrollIntoView(true);", actionButtons[index]);
+                await this.driver.sleep(1000);
+                await actionButtons[index].click();
                 return true;
             } catch (e) {
-                if (e.name === 'StaleElementReferenceError') return false;
-                throw e;
+                return false;
             }
-        }, 10000, 'Failed to click update button');
+        }, 10000, 'Failed to click action menu');
+
+        // Click edit and update name
+        await this.driver.findElement(this.editMenuItem).click();
+        await this.driver.sleep(1000);
+
+        const nameInput = await this.driver.findElement(this.workspaceNameInput);
+        await nameInput.clear();
+        await nameInput.sendKeys(newName);
+        
+        // Click update and wait for success
+        await this.driver.findElement(this.editButton).click();
+        
+        // Wait for success message
+        const successMessage = await this.getSuccessMessage();
+        console.log('Update success message:', successMessage);
+        
+        // Verify update
+        await this.searchWorkspace(newName);
+        await this.driver.sleep(2000);
     }
 
     async clickWorkspaceMenu() {
@@ -132,29 +200,67 @@ export class WorkspacePage extends BasePage {
         }, 15000, 'Failed to click workspace menu after multiple attempts');
     }
 
+    async verifyWorkspaceDeletion(name) {
+        // First verify through search
+        await this.searchWorkspace(name);
+        await this.driver.sleep(2000);
+
+        // Check for no rows message
+        const hasNoRows = await this.verifyNoRows();
+        console.log(`Checking if "${name}" is deleted - No rows found:`, hasNoRows);
+
+        // Double check by refreshing
+        await this.driver.navigate().refresh();
+        await this.driver.sleep(2000);
+        
+        // Search again after refresh
+        await this.searchWorkspace(name);
+        await this.driver.sleep(2000);
+        
+        // Final verification
+        const isDeleted = await this.verifyNoRows();
+        console.log(`Final deletion verification for "${name}":`, isDeleted);
+        
+        return hasNoRows && isDeleted;
+    }
+
     async deleteWorkspace(index) {
-        // Get action buttons and wait for them to be present
-        const actionButtons = await this.driver.wait(
-            until.elementsLocated(this.actionMenuButton),
+        await this.driver.sleep(2000);
+
+        // Get all workspace rows first
+        const rows = await this.driver.wait(
+            until.elementsLocated(By.css('.MuiDataGrid-row')),
             10000,
-            'Action menu buttons not found'
+            'No workspace rows found'
         );
-        
-        // Ensure we have buttons and index is valid
-        if (!actionButtons || actionButtons.length <= index) {
-            throw new Error(`No action button found at index ${index}`);
+
+        if (!rows[index]) {
+            throw new Error(`No workspace row found at index ${index}`);
         }
-        
-        // Click the action menu
-        await actionButtons[index].click();
+
+        // Get workspace name from the specific row
+        const nameCell = await rows[index].findElement(By.css('[data-field="name"]'));
+        const targetWorkspaceName = await nameCell.getText();
+        console.log(`Found workspace to delete: "${targetWorkspaceName}"`);
+
+        // Find and click action button in the same row
+        const actionButton = await rows[index].findElement(this.actionMenuButton);
+        await this.driver.executeScript("arguments[0].scrollIntoView(true);", actionButton);
+        await actionButton.click();
         await this.driver.sleep(1000);
 
-        // Rest of delete workflow
-        await this.driver.wait(until.elementLocated(this.deleteMenuItem), 10000);
+        // Delete workflow
         await this.driver.findElement(this.deleteMenuItem).click();
-        
-        await this.driver.wait(until.elementLocated(this.confirmDeleteButton), 10000);
+        await this.driver.sleep(1000);
         await this.driver.findElement(this.confirmDeleteButton).click();
+        await this.driver.sleep(2000);
+
+        // Verify deletion
+        const isDeleted = await this.searchAndVerifyWorkspace(targetWorkspaceName, false);
+        if (!isDeleted) {
+            throw new Error(`Workspace "${targetWorkspaceName}" still exists after deletion`);
+        }
+        console.log(`Successfully deleted workspace: "${targetWorkspaceName}"`);
     }
 
     async searchWorkspace(name) {
