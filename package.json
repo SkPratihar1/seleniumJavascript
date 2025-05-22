@@ -6,7 +6,7 @@
     "test": "mocha --timeout 60000 'test/**/*.test.js'",
     "test:smoke": "mocha --require dotenv/config test/smoke/suite.js --timeout 300000 --exit",
     "test:smoke:single": "mocha",
-    "test:regression": "mocha --timeout 60000 'test/regression/**/*.test.js'",
+    "test:regression": "mocha --require dotenv/config test/regression/suite.js --timeout 300000 --exit",
     "report": "mochawesome-merge ./reports/*.json -o ./reports/report.json",
     "test:single": "mocha --require dotenv/config --timeout 60000"
   },
